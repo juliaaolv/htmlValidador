@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador de Sintaxe HTML | Algoritmo em C</title>
+       <link rel="icon" href="logt.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="nav-brand">
+            <span class="brand-badge">&lt;/&gt;</span>
+            <div>
+                <span class="brand-title">HTML STACK ENGINE</span>
+                <span class="brand-sub">Estrutura de Dados em C</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-container">
+        
+        <section class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2>Ambiente de Teste em Tempo Real</h2>
+                    <p class="panel-desc">Insira ou selecione um caso de teste para validar o aninhamento</p>
+                </div>
+            </div>
+
+            <div class="preset-container">
+                <span class="preset-label">Casos de Teste:</span>
+                <button class="preset-btn" onclick="carregarExemplo('valido')">Código Válido</button>
+                <button class="preset-btn" onclick="carregarExemplo('erro_linha')">Erro de Fechamento</button>
+                <button class="preset-btn" onclick="carregarExemplo('orfa')">Tags Órfãs (br/img)</button>
+            </div>
+            
+            <div class="editor-wrapper">
+                <div class="line-numbers" id="lineNumbers">1</div>
+                <textarea id="htmlInput" spellcheck="false" placeholder="<div class=&quot;container&quot;>&#10;    <p>Insira seu código HTML aqui...</p>&#10;</div>"></textarea>
+            </div>
+
+            <div class="action-bar">
+                <button class="action-btn" id="btnValidar">Executar Validação</button>
+                <button class="clear-btn" id="btnLimpar">Limpar</button>
+            </div>
+
+            <div id="resultBox" class="console-output">
+                <div class="console-header">Resultado da Análise</div>
+                <div id="consoleText" class="console-body">Aguardando execução...</div>
+            </div>
+        </section>
+
+        <section class="panel-card">
+            <div class="panel-header">
+                <div>
+                    <h2>Implementação Core em C</h2>
+                    <p class="panel-desc">Código-fonte oficial utilizado para varredura e gerência de ponteiros</p>
+                </div>
+            </div>
+
+            <div class="code-wrapper">
+                <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdbool.h&gt;
+
+#ifdef _WIN32
+#include &lt;string.h&gt;
+#define COMPARA_STRING _stricmp
+#else
+#include &lt;strings.h&gt;
+#define COMPARA_STRING strcasecmp
+#endif
+
+typedef struct Node {
+    char *nome_tag;
+    int linha;
+    struct Node *proximo;
+} Node;
+
+typedef struct Pilha {
+    Node *topo;
+    int tamanho;
+} Pilha;
+
+Pilha* criar(void) {
+    Pilha *p = (Pilha*) malloc(sizeof(Pilha));
+    if (p != NULL) {
+        p-&gt;topo = NULL;
+        p-&gt;tamanho = 0;
+    }
+    return p;
+}
+
+bool vazia(Pilha *p) {
+    if (p == NULL) return true;
+    return p-&gt;topo == NULL;
+}
+
+int tamamho(Pilha *p) {
+    if (p == NULL) return 0;
+    return p-&gt;tamanho;
+}
+
+bool empilhar(Pilha *p, const char *nome_tag, int linha) {
+    if (p == NULL || nome_tag == NULL) return false;
+
+    Node *novo = (Node*) malloc(sizeof(Node));
+    if (novo == NULL) return false;
+
+    novo-&gt;nome_tag = (char*) malloc(strlen(nome_tag) + 1);
+    if (novo-&gt;nome_tag == NULL) {
+        free(novo);
+        return false;
+    }
+    strcpy(novo-&gt;nome_tag, nome_tag);
+
+    novo-&gt;linha = linha;
+    novo-&gt;proximo = p-&gt;topo;
+    p-&gt;topo = novo;
+    p-&gt;tamanho++;
+
+    return true;
+}
+
+bool desempilhar(Pilha *p, char **nome_tag, int *linha) {
+    if (p == NULL || vazia(p)) return false;
+
+    Node *remover = p-&gt;topo;
+
+    if (nome_tag != NULL) {
+        *nome_tag = remover-&gt;nome_tag; 
+    } else {
+        free(remover-&gt;nome_tag);
+    }
+
+    if (linha != NULL) {
+        *linha = remover-&gt;linha;
+    }
+
+    p-&gt;topo = remover-&gt;proximo;
+    free(remover);
+    p-&gt;tamanho--;
+
+    return true;
+}
+
+void destruir(Pilha *p) {
+    if (p == NULL) return;
+
+    while (!vazia(p)) {
+        desempilhar(p, NULL, NULL);
+    }
+    free(p);
+}
+
+bool eh_tag_orfa(const char *tag) {
+    const char *orfas[] = {"br", "hr", "img", "input", "meta", "link"};
+    int total_orfas = sizeof(orfas) / sizeof(orfas[0]);
+
+    for (int i = 0; i &lt; total_orfas; i++) {
+        if (COMPARA_STRING(tag, orfas[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc &lt; 2) {
+        printf("Uso: %s &lt;arquivo.html&gt;\n", argv[0]);
+        return 1;
+    }
+
+    FILE *arquivo = fopen(argv[1], "r");
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo %s\n", argv[1]);
+        return 1;
+    }
+
+    Pilha *pilha = criar();
+    if (pilha == NULL) {
+        fclose(arquivo);
+        return 1;
+    }
+
+    int linha_atual = 1;
+    int ch;
+
+    while ((ch = fgetc(arquivo)) != EOF) {
+       if (ch == '\n') {
+           linha_atual++;
+           continue;
+         }
+
+        if (ch == '&lt;') {
+            int proximo = fgetc(arquivo);
+
+            if (proximo == '!') {
+                while ((ch = fgetc(arquivo)) != EOF &amp;&amp; ch != '&gt;') {
+                  if (ch == '\n') linha_atual++;
+                }
+                 continue;
+           }
+
+            bool eh_fechamento = false;
+            if (proximo == '/') {
+                eh_fechamento = true;
+            } else {
+                ungetc(proximo, arquivo); 
+            }
+
+            char buffer_tag[256];
+            int idx = 0;
+
+            while ((ch = fgetc(arquivo)) != EOF &amp;&amp; ch != '&gt;' &amp;&amp; ch != ' ' &amp;&amp; ch != '\t' &amp;&amp; ch != '\n' &amp;&amp; ch != '\r') {
+                if (idx &lt; (int)sizeof(buffer_tag) - 1) {
+                    buffer_tag[idx++] = (char)ch;
+                }
+            }
+            
+            if (ch == '\n') {
+                linha_atual++;
+            }
+            
+            buffer_tag[idx] = '\0';
+
+            while (ch != '&gt;' &amp;&amp; ch != EOF) {
+                if (ch == '\n') linha_atual++;
+                ch = fgetc(arquivo);
+            }
+
+            if (idx == 0) continue; 
+
+            if (eh_fechamento) {
+                if (vazia(pilha)) {
+                    printf("Mal formatado: Tag de fechamento &lt;/%s&gt; inesperada na linha %d\n", buffer_tag, linha_atual);
+                    destruir(pilha);
+                    fclose(arquivo);
+                    return 0;
+                }
+
+                char *tag_topo = NULL;
+                int linha_topo = 0;
+                desempilhar(pilha, &amp;tag_topo, &amp;linha_topo);
+
+                if (COMPARA_STRING(buffer_tag, tag_topo) != 0) {
+                    printf("Mal formatado: Tag de fechamento &lt;/%s&gt; inesperada na linha %d\n", buffer_tag, linha_atual);
+                    free(tag_topo);
+                    destruir(pilha);
+                    fclose(arquivo);
+                    return 0;
+                }
+
+                free(tag_topo);
+            } 
+            else {
+                if (!eh_tag_orfa(buffer_tag)) {
+                    empilhar(pilha, buffer_tag, linha_atual);
+                }
+            }
+        }
+    }
+
+    if (!vazia(pilha)) {
+        char *tag_topo = NULL;
+        int linha_topo = 0;
+        desempilhar(pilha, &amp;tag_topo, &amp;linha_topo);
+
+        printf("Mal formatado: Tag &lt;%s&gt; aberta na linha %d nao foi fechada\n", tag_topo, linha_topo);
+        free(tag_topo);
+        destruir(pilha);
+        fclose(arquivo);
+        return 0;
+    }
+
+    printf("Bem formatado\n");
+
+    destruir(pilha);
+    fclose(arquivo);
+    return 0;
+}</code></pre>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        <p>Projeto de Estrutura de Dados em C &bull; Desenvolvido por <strong>Julia Oliveira</strong></p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
